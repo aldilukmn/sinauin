@@ -351,7 +351,6 @@ export default function CetakNisnPage() {
                               setData({ ...data, dob: "" });
                             }
                           }}
-                          initialFocus
                           locale={id}
                           captionLayout="dropdown"
                           startMonth={new Date(1990, 0)}
@@ -371,7 +370,7 @@ export default function CetakNisnPage() {
                       <Select
                         value={data.gender}
                         onValueChange={(value) =>
-                          setData({ ...data, gender: value })
+                          setData({ ...data, gender: value || "" })
                         }
                       >
                         <SelectTrigger
