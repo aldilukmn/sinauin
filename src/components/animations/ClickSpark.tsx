@@ -168,7 +168,7 @@ export const ClickSpark = ({
 
   return (
     <>
-      <canvas ref={canvasRef} className="block fixed inset-0 w-full h-full select-none pointer-events-none z-[100]" />
+      <canvas ref={canvasRef} className="block fixed inset-0 w-full h-full select-none pointer-events-none z-[100] print:hidden" />
       {children}
     </>
   );

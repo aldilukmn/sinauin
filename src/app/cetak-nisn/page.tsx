@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSekolah } from "@/components/cetak-nisn/FormSekolah";
 import { FormSiswa } from "@/components/cetak-nisn/FormSiswa";
+import { FormSiswaBulk } from "@/components/cetak-nisn/FormSiswaBulk";
 import { FormCard } from "@/components/cetak-nisn/FormCard";
+import { BulkPrintLayout } from "@/components/cetak-nisn/BulkPrintLayout";
 import {
   Card,
   CardContent,
@@ -34,7 +36,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { NisnCard, NisnData, NisnCardBack } from "@/components/cetak-nisn/NisnCard";
+import { NisnCard, NisnData, NisnCardBack, StudentData } from "@/components/cetak-nisn/NisnCard";
 import {
   Printer,
   Upload,
@@ -71,9 +73,22 @@ export default function CetakNisnPage() {
   const [schoolLogoName, setSchoolLogoName] = useState<string>("");
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [printMode, setPrintMode] = useState<"single" | "bulk">("single");
+  const [isChangingMode, setIsChangingMode] = useState(false);
+  const [bulkStudents, setBulkStudents] = useState<StudentData[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const schoolLogoInputRef = useRef<HTMLInputElement>(null);
   const printContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleModeSwitch = (mode: "single" | "bulk") => {
+    if (printMode === mode) return;
+    setIsChangingMode(true);
+    setPrintMode(mode);
+    setTimeout(() => {
+      setIsChangingMode(false);
+    }, 600);
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -111,6 +126,8 @@ export default function CetakNisnPage() {
     });
     setFileName("");
     setSchoolLogoName("");
+    setBulkStudents([]);
+    setCsvFileName("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -119,7 +136,7 @@ export default function CetakNisnPage() {
     }
   };
 
-  const isFormComplete = Boolean(
+  const isFormComplete = printMode === "single" ? Boolean(
     data.nisn &&
     data.nisn.length === 10 &&
     data.name &&
@@ -131,13 +148,36 @@ export default function CetakNisnPage() {
     data.regency &&
     data.schoolLogoUrl &&
     data.photoUrl,
+  ) : Boolean(
+    data.school &&
+    data.district &&
+    data.regency &&
+    data.schoolLogoUrl &&
+    bulkStudents.length > 0
   );
+
+  const previewData = printMode === 'bulk' && bulkStudents.length > 0
+    ? { 
+        ...bulkStudents[0], 
+        school: data.school, 
+        district: data.district, 
+        regency: data.regency, 
+        schoolLogoUrl: data.schoolLogoUrl 
+      }
+    : data;
 
   const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (!file.type.startsWith("image/")) {
         toast.error("Format file tidak didukung! Harap unggah file gambar.");
+        if (schoolLogoInputRef.current) schoolLogoInputRef.current.value = "";
+        return;
+      }
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Ukuran logo terlalu besar! Maksimal 2MB.");
         if (schoolLogoInputRef.current) schoolLogoInputRef.current.value = "";
         return;
       }
@@ -163,6 +203,15 @@ export default function CetakNisnPage() {
         return;
       }
 
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Ukuran foto terlalu besar! Maksimal 2MB.");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       setFileName(file.name);
       const url = URL.createObjectURL(file);
       setData({ ...data, photoUrl: url });
@@ -171,6 +220,11 @@ export default function CetakNisnPage() {
   };
 
   const handlePrint = useCallback(async () => {
+    if (printMode === "bulk") {
+      window.print();
+      return;
+    }
+
     if (printContainerRef.current === null) {
       return;
     }
@@ -204,10 +258,11 @@ export default function CetakNisnPage() {
       console.error("Oops, something went wrong!", err);
       toast.error("Gagal mengunduh kartu. Silakan coba lagi.");
     }
-  }, [data.nisn, data.name]);
+  }, [data.nisn, data.name, printMode]);
 
   return (
-    <div className="w-full flex flex-col lg:flex-row bg-white relative">
+    <>
+    <div className="w-full flex flex-col lg:flex-row bg-white relative print:hidden">
       
       {/* LEFT PANE (Brand & Preview) */}
       <div className={cn(
@@ -274,10 +329,31 @@ export default function CetakNisnPage() {
                   >
                     {/* Front Face */}
                     <div
-                      className="absolute inset-0 w-full h-full shadow-sm border border-slate-200 rounded-md overflow-hidden"
+                      className="absolute inset-0 w-full h-full shadow-sm border border-slate-200 rounded-md overflow-hidden bg-white"
                       style={{ backfaceVisibility: "hidden" }}
                     >
-                      <NisnCard data={data} />
+                      {isChangingMode ? (
+                        <div className="absolute inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+                          <motion.div
+                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                            className="w-full h-full flex flex-col justify-between"
+                          >
+                            <div className="w-full h-[25%] bg-slate-200 rounded-md mb-2"></div>
+                            <div className="flex gap-2 h-[50%] mb-2">
+                              <div className="w-[30%] bg-slate-200 rounded-md"></div>
+                              <div className="w-[70%] flex flex-col gap-2">
+                                <div className="h-3 w-full bg-slate-200 rounded-full"></div>
+                                <div className="h-3 w-5/6 bg-slate-200 rounded-full"></div>
+                                <div className="h-3 w-4/6 bg-slate-200 rounded-full"></div>
+                              </div>
+                            </div>
+                            <div className="w-full h-[20%] bg-slate-200 rounded-md"></div>
+                          </motion.div>
+                        </div>
+                      ) : (
+                        <NisnCard data={previewData} />
+                      )}
 
                       {/* Premium Glossy Shimmer Effect */}
                       <motion.div
@@ -306,13 +382,31 @@ export default function CetakNisnPage() {
 
                     {/* Back Face */}
                     <div
-                      className="absolute inset-0 w-full h-full shadow-sm border border-slate-200 rounded-md overflow-hidden"
+                      className="absolute inset-0 w-full h-full shadow-sm border border-slate-200 rounded-md overflow-hidden bg-white"
                       style={{
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
                       }}
                     >
-                      <NisnCardBack data={data} />
+                      {isChangingMode ? (
+                        <div className="absolute inset-0 z-50 bg-slate-50 flex items-center justify-center p-4">
+                          <motion.div
+                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                            className="w-full h-full flex flex-col gap-2"
+                          >
+                            <div className="h-4 w-1/3 bg-slate-200 rounded-full mb-2"></div>
+                            <div className="h-3 w-full bg-slate-200 rounded-full"></div>
+                            <div className="h-3 w-11/12 bg-slate-200 rounded-full"></div>
+                            <div className="h-3 w-full bg-slate-200 rounded-full"></div>
+                            <div className="h-3 w-10/12 bg-slate-200 rounded-full"></div>
+                            <div className="h-3 w-full bg-slate-200 rounded-full mt-4"></div>
+                            <div className="h-3 w-8/12 bg-slate-200 rounded-full"></div>
+                          </motion.div>
+                        </div>
+                      ) : (
+                        <NisnCardBack data={previewData} />
+                      )}
 
                       {/* Premium Glossy Shimmer Effect */}
                       <motion.div
@@ -351,7 +445,7 @@ export default function CetakNisnPage() {
                       : "bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed hover:bg-slate-800",
                   )}
                 >
-                  <Printer className="w-5 h-5 mr-2" /> Unduh Kartu
+                  <Printer className="w-5 h-5 mr-2" /> {printMode === 'bulk' ? 'Cetak Massal (A4)' : 'Unduh Kartu'}
                 </Button>
 
 
@@ -476,14 +570,39 @@ export default function CetakNisnPage() {
                       description="Isi data siswa di bawah ini."
                       icon={<Info className="w-5 h-5 text-blue-100" />}
                     >
-                      <FormSiswa 
-                        data={data}
-                        setData={setData}
-                        handleChange={handleChange}
-                        fileName={fileName}
-                        fileInputRef={fileInputRef}
-                        handlePhotoUpload={handlePhotoUpload}
-                      />
+                      <div className="flex bg-slate-100 p-1 rounded-lg w-fit mb-4">
+                        <button 
+                          onClick={() => handleModeSwitch('single')}
+                          className={cn("cursor-pointer px-4 py-1.5 text-sm font-medium rounded-md transition-all", printMode === 'single' ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
+                        >
+                          Cetak Satuan
+                        </button>
+                        <button 
+                          onClick={() => handleModeSwitch('bulk')}
+                          className={cn("cursor-pointer px-4 py-1.5 text-sm font-medium rounded-md transition-all", printMode === 'bulk' ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
+                        >
+                          Cetak Massal
+                        </button>
+                      </div>
+
+                      {printMode === 'single' ? (
+                        <FormSiswa 
+                          data={data}
+                          setData={setData}
+                          handleChange={handleChange}
+                          fileName={fileName}
+                          fileInputRef={fileInputRef}
+                          handlePhotoUpload={handlePhotoUpload}
+                        />
+                      ) : (
+                        <FormSiswaBulk
+                          bulkStudents={bulkStudents}
+                          setBulkStudents={setBulkStudents}
+                          fileName={csvFileName}
+                          setFileName={setCsvFileName}
+                          photoCount={bulkStudents.filter(s => s.photoUrl).length}
+                        />
+                      )}
                     </FormCard>
                     <div className="flex lg:hidden mt-2">
                       <Button
@@ -523,5 +642,18 @@ export default function CetakNisnPage() {
         </div>
       </div>
     </div>
+    
+    {printMode === 'bulk' && (
+      <BulkPrintLayout 
+        bulkStudents={bulkStudents} 
+        schoolData={{
+          school: data.school,
+          district: data.district,
+          regency: data.regency,
+          schoolLogoUrl: data.schoolLogoUrl,
+        }}
+      />
+    )}
+    </>
   );
 }

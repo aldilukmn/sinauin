@@ -56,7 +56,7 @@ export function FormSekolah({
             onClick={() => schoolLogoInputRef.current?.click()}
             title={schoolLogoName || "Unggah Logo Sekolah"}
             className={cn(
-              "w-full border transition-all h-9 shadow-none truncate px-4",
+              "w-full border transition-all h-8.5 shadow-none truncate px-4",
               schoolLogoName
                 ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-500 border-solid"
                 : "border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50",
