@@ -227,14 +227,13 @@ export const NisnCard = forwardRef<HTMLDivElement, NisnCardProps>(({ data }, ref
 
           {/* Right Column: Data */}
           <div className="flex-1 flex flex-col relative z-10">
-            <div className="text-center w-full mb-1.5">
+            <div className="text-center w-full mb-1.5 border-b border-[#173B8F] pb-1">
               <h3 className="text-[12px] font-black text-[#173B8F] uppercase tracking-widest leading-none mb-0.5">
                 KARTU NISN
               </h3>
-              <h4 className="text-[7.5px] font-bold text-blue-900 uppercase tracking-wider leading-none mb-1">
+              <h4 className="text-[7.5px] font-bold text-blue-900 uppercase tracking-wider leading-none">
                 Nomor Induk Siswa Nasional
               </h4>
-              <div className="h-[1px] w-full bg-[#173B8F]" />
             </div>
 
             <div className="text-md font-black text-[#173B8F] tracking-wider">
@@ -467,7 +466,7 @@ export const NisnCardBack = forwardRef<HTMLDivElement, NisnCardProps>(({ data },
             <h3 className="font-bold text-[#173B8F] text-[11px] mb-0.5">
               KETENTUAN PENGGUNAAN KARTU
             </h3>
-            <div className="h-[1px] w-full bg-[#173B8F] mb-1.5" />
+            <div className="border-t border-[#173B8F] w-full mb-1.5" />
             <ol className="text-[8.7px] tracking-tight text-slate-700 text-left list-decimal pl-3 pr-0 space-y-1 font-medium leading-snug w-full">
               <li>Kartu sebagai identitas siswa.</li>
               <li>Berlaku selama siswa masih aktif.</li>

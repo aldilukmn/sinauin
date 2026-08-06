@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import * as htmlToImage from "html-to-image";
 import { motion, AnimatePresence } from "framer-motion";
+import { AnimatedNumber } from "@/components/animations/AnimatedNumber";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,9 +78,34 @@ export default function CetakNisnPage() {
   const [isChangingMode, setIsChangingMode] = useState(false);
   const [bulkStudents, setBulkStudents] = useState<StudentData[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
+  const [printCount, setPrintCount] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const schoolLogoInputRef = useRef<HTMLInputElement>(null);
   const printContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Function to fetch the latest counter
+    const fetchCounter = () => {
+      fetch('/api/counter')
+        .then(res => res.json())
+        .then(data => {
+          const parsedCount = Number(data.count);
+          if (!isNaN(parsedCount)) {
+            setPrintCount(parsedCount);
+          }
+        })
+        .catch(err => console.error("Failed to fetch print count:", err));
+    };
+
+    // Fetch immediately on load
+    fetchCounter();
+
+    // Set up real-time polling (auto-refresh) every 3 seconds
+    const intervalId = setInterval(fetchCounter, 3000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleModeSwitch = (mode: "single" | "bulk") => {
     if (printMode === mode) return;
@@ -220,8 +246,43 @@ export default function CetakNisnPage() {
   };
 
   const handlePrint = useCallback(async () => {
+    // Record the print in the backend counter and update UI immediately
+    const trackPrint = async (nisnList: string[]) => {
+      // Optimistic UI update: assume all are new for instant feedback
+      const originalCount = printCount;
+      setPrintCount(prev => (prev || 0) + nisnList.length);
+      
+      try {
+        const response = await fetch('/api/counter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nisnList }),
+        });
+        const resData = await response.json();
+        
+        // Correct the optimistic UI if some NISNs were duplicates
+        if (resData.success && typeof resData.count === 'number') {
+           setPrintCount(resData.count);
+        }
+      } catch (err) {
+        console.error("Failed to update counter:", err);
+        // Rollback optimistic update on error
+        setPrintCount(originalCount);
+      }
+    };
+
     if (printMode === "bulk") {
-      window.print();
+      // For bulk, map the NISNs
+      const nisns = bulkStudents.length > 0 
+        ? bulkStudents.map(s => s.nisn || "0000000000") 
+        : ["bulk_test_nisn"];
+        
+      await trackPrint(nisns); // Await this so the network request fires before thread freezes
+      
+      // Add a tiny delay to ensure React state updates and fetch dispatches before printing
+      setTimeout(() => {
+        window.print();
+      }, 100);
       return;
     }
 
@@ -253,12 +314,14 @@ export default function CetakNisnPage() {
       link.download = `${baseFileName}.png`;
       link.href = dataUrl;
       link.click();
+      const trackNisn = data.nisn ? data.nisn : "0000000000";
+      await trackPrint([trackNisn]);
       toast.success("Kartu berhasil diunduh!");
     } catch (err) {
       console.error("Oops, something went wrong!", err);
       toast.error("Gagal mengunduh kartu. Silakan coba lagi.");
     }
-  }, [data.nisn, data.name, printMode]);
+  }, [data.nisn, data.name, printMode, bulkStudents.length]);
 
   return (
     <>
@@ -299,9 +362,9 @@ export default function CetakNisnPage() {
               <div className="w-full max-w-[8.56cm] flex flex-col gap-6">
                 
                 <div className="w-full flex justify-center border-b border-white/10 pb-4 shrink-0 mb-2">
-                  <h2 className="text-xs font-bold text-white bg-white/10 px-4 py-1.5 rounded-full uppercase tracking-widest text-center border border-white/20 flex items-center gap-2 backdrop-blur-sm">
+                  <h2 className="text-xs font-bold text-white bg-white/10 px-4 py-1.5 rounded-full uppercase tracking-widest text-center border border-white/20 flex items-center gap-2 lg:backdrop-blur-sm">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="lg:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 hidden lg:block"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     Live Preview
@@ -355,21 +418,23 @@ export default function CetakNisnPage() {
                         <NisnCard data={previewData} />
                       )}
 
-                      {/* Premium Glossy Shimmer Effect */}
-                      <motion.div
-                        className="absolute inset-0 z-10 pointer-events-none"
-                        style={{
-                          background:
-                            "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.7) 50%, transparent 80%)",
-                        }}
-                        animate={{ x: ["-150%", "200%"] }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: 3,
-                          ease: "easeInOut",
-                          repeatDelay: 2,
-                        }}
-                      />
+                      {/* Premium Glossy Shimmer Effect (Desktop Only) */}
+                      <div className="hidden lg:block">
+                        <motion.div
+                          className="absolute inset-0 z-10 pointer-events-none"
+                          style={{
+                            background:
+                              "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.7) 50%, transparent 80%)",
+                          }}
+                          animate={{ x: ["-150%", "200%"] }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 3,
+                            ease: "easeInOut",
+                            repeatDelay: 2,
+                          }}
+                        />
+                      </div>
 
                       {/* Hover overlay explaining flip */}
                       <div className="absolute inset-0 z-20 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -408,21 +473,23 @@ export default function CetakNisnPage() {
                         <NisnCardBack data={previewData} />
                       )}
 
-                      {/* Premium Glossy Shimmer Effect */}
-                      <motion.div
-                        className="absolute inset-0 z-10 pointer-events-none"
-                        style={{
-                          background:
-                            "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.7) 50%, transparent 80%)",
-                        }}
-                        animate={{ x: ["-150%", "200%"] }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: 3,
-                          ease: "easeInOut",
-                          repeatDelay: 2,
-                        }}
-                      />
+                      {/* Premium Glossy Shimmer Effect (Desktop Only) */}
+                      <div className="hidden lg:block">
+                        <motion.div
+                          className="absolute inset-0 z-10 pointer-events-none"
+                          style={{
+                            background:
+                              "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.7) 50%, transparent 80%)",
+                          }}
+                          animate={{ x: ["-150%", "200%"] }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 3,
+                            ease: "easeInOut",
+                            repeatDelay: 2,
+                          }}
+                        />
+                      </div>
 
                       {/* Hover overlay explaining flip */}
                       <div className="absolute inset-0 z-20 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -475,8 +542,23 @@ export default function CetakNisnPage() {
               <p className="text-slate-500 text-sm md:text-base leading-relaxed max-w-md">
                 Buat dan cetak Kartu Nomor Induk Siswa Nasional (NISN) secara instan.
               </p>
-              <div className="mt-5 inline-flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" /> Privasi 100% Aman di Perangkat Anda
+              <div className="mt-5 flex flex-col sm:flex-row flex-wrap gap-2 items-center justify-center lg:justify-start">
+                <div className="flex w-full sm:w-auto items-center justify-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" /> Privasi 100% Aman di Perangkat Anda
+                </div>
+                <AnimatePresence>
+                  {printCount !== null && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex w-full sm:w-auto items-center justify-center gap-2 bg-blue-50 border border-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm"
+                    >
+                      🎉 <AnimatedNumber value={printCount} /> Kartu Telah Dicetak
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -617,8 +699,8 @@ export default function CetakNisnPage() {
               </AnimatePresence>
             </div>
 
-          <div className="bg-blue-50/50 border border-blue-100 text-slate-600 p-4 rounded-xl text-sm w-full mt-6">
-            <strong className="text-slate-900 flex items-center gap-2 mb-2"><Printer className="w-4 h-4 text-blue-600"/> Tips Mencetak:</strong>
+          <div className="bg-yellow-50 border border-yellow-200 text-slate-700 p-4 rounded-xl text-sm w-full mt-6 shadow-sm">
+            <strong className="text-slate-900 flex items-center gap-2 mb-2"><Printer className="w-4 h-4 text-yellow-600"/> Tips Mencetak:</strong>
             <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-500">
               <li>Ukuran cetak CR80 adalah <strong>85.6 mm x 54 mm</strong>.</li>
               <li>Gunakan kertas foto atau PVC untuk hasil terbaik.</li>

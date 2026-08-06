@@ -39,7 +39,7 @@ export default function RootLayout({
             <Footer />
           </div>
         </ClickSpark>
-        <Toaster position="top-center" richColors />
+        <Toaster position="top-center" richColors className="print:hidden" />
       </body>
     </html>
   );
