@@ -23,14 +23,22 @@ export function FormSiswaBulk({
 }: FormSiswaBulkProps) {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const photosInputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string>("");
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file extension
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const isValidExtension = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    
+    if (!isValidExtension) {
+      toast.error("Format file tidak didukung! Harap unggah file Excel (.xlsx atau .xls).");
+      if (csvInputRef.current) csvInputRef.current.value = "";
+      return;
+    }
+
     setFileName(file.name);
-    setError("");
 
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -42,29 +50,61 @@ export function FormSiswaBulk({
         const parsedData = XLSX.utils.sheet_to_json(ws) as any[];
 
         // Try to find the correct column headers, making it somewhat resilient
-        const mappedStudents: StudentData[] = parsedData.map((row) => {
-          // Find keys case-insensitively or with variations
+        let invalidNisnCount = 0;
+        
+        const mappedStudents: StudentData[] = [];
+        
+        parsedData.forEach((row) => {
           const keys = Object.keys(row);
           const getVal = (possibleKeys: string[]) => {
             const key = keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
-            return key ? row[key] : "";
+            return key ? String(row[key]).trim() : "";
           };
 
-          return {
-            nisn: getVal(["nisn", "induk"]),
-            name: getVal(["nama", "name"]),
+          const rawNisn = getVal(["nisn", "induk"]);
+          // Clean the NISN to only contain digits
+          const cleanNisn = rawNisn.replace(/\D/g, "");
+          const name = getVal(["nama", "name"]);
+
+          // Skip completely empty rows
+          if (!cleanNisn && !name) return;
+
+          if (cleanNisn.length !== 10) {
+            invalidNisnCount++;
+            return; // Skip this row
+          }
+
+          mappedStudents.push({
+            nisn: cleanNisn,
+            name: name,
             pob: getVal(["tempat", "lahir", "pob"]),
             dob: getVal(["tanggal", "tgl", "dob", "date"]),
             gender: getVal(["jenis", "kelamin", "gender", "jk"]),
             photoUrl: "", // Handled by photo upload
-          };
-        }).filter(s => s.nisn || s.name); // Filter out completely empty rows
+          });
+        });
 
-        if (mappedStudents.length === 0) {
-          setError("Gagal membaca data. Pastikan format Excel memiliki header seperti NISN, Nama, dll.");
+        if (mappedStudents.length === 0 && invalidNisnCount > 0) {
+          toast.error(`Semua data ditolak! Ditemukan ${invalidNisnCount} baris, namun NISN tidak valid (harus persis 10 digit angka).`);
+          if (csvInputRef.current) csvInputRef.current.value = "";
+          setFileName("");
+        } else if (mappedStudents.length === 0) {
+          toast.error("Gagal membaca data! Pastikan format Excel sesuai template (memiliki kolom NISN, Nama, dll).");
+          if (csvInputRef.current) csvInputRef.current.value = "";
+          setFileName("");
         } else if (mappedStudents.length > 100) {
-          setError("Data terlalu banyak! Maksimal 100 siswa per file Excel untuk mencegah browser macet.");
+          toast.error("Data terlalu banyak! Maksimal 100 siswa per file Excel untuk menjaga kinerja browser.");
+          if (csvInputRef.current) csvInputRef.current.value = "";
+          setFileName("");
         } else {
+          if (invalidNisnCount > 0) {
+            toast.warning(`${invalidNisnCount} data siswa diabaikan karena NISN tidak valid.`, {
+              duration: 7000,
+            });
+          } else {
+            toast.success(`${mappedStudents.length} data siswa berhasil dimuat!`);
+          }
+          
           // Preserve existing photo URLs if any, matched by NISN
           const existingPhotos = new Map(bulkStudents.filter(s => s.photoUrl).map(s => [s.nisn, s.photoUrl]));
           const studentsWithPhotos = mappedStudents.map(s => ({
@@ -75,11 +115,15 @@ export function FormSiswaBulk({
           setBulkStudents(studentsWithPhotos);
         }
       } catch (err: any) {
-        setError("Error parsing Excel: " + err.message);
+        toast.error("Error membaca Excel: " + err.message);
+        if (csvInputRef.current) csvInputRef.current.value = "";
+        setFileName("");
       }
     };
     reader.onerror = () => {
-      setError("Error membaca file.");
+      toast.error("Error saat membaca file dari browser.");
+      if (csvInputRef.current) csvInputRef.current.value = "";
+      setFileName("");
     };
     reader.readAsBinaryString(file);
   };
@@ -104,9 +148,14 @@ export function FormSiswaBulk({
     const updatedStudents = [...bulkStudents];
     let matchCount = 0;
     const oversizedFiles: string[] = [];
+    const invalidTypeFiles: string[] = [];
+    const unmappedFiles: string[] = [];
 
     Array.from(files).forEach(file => {
-      if (!file.type.startsWith("image/")) return;
+      if (!file.type.startsWith("image/")) {
+        invalidTypeFiles.push(file.name);
+        return;
+      }
 
       // Assuming filename is something like "1234567890.jpg"
       const nisnFromFileName = file.name.split('.')[0];
@@ -124,16 +173,32 @@ export function FormSiswaBulk({
           photoUrl: URL.createObjectURL(file)
         };
         matchCount++;
+      } else {
+        unmappedFiles.push(file.name);
       }
     });
 
     if (matchCount > 0) {
       toast.success(`${matchCount} foto berhasil dipetakan ke data siswa!`);
+    } else if (unmappedFiles.length > 0 && invalidTypeFiles.length === 0) {
+      toast.error("Tidak ada satupun foto yang namanya cocok dengan NISN siswa.");
+    }
+
+    if (invalidTypeFiles.length > 0) {
+      toast.error(`${invalidTypeFiles.length} file ditolak karena bukan format gambar (Hanya JPG/PNG).`, {
+        duration: 5000,
+      });
     }
 
     if (oversizedFiles.length > 0) {
-      toast.warning(`Sebanyak ${oversizedFiles.length} foto ditolak karena melebihi 2MB. Siswa terkait tidak mendapat foto.`, {
-        duration: 6000,
+      toast.warning(`Sebanyak ${oversizedFiles.length} foto ditolak karena melebihi batas 2MB.`, {
+        duration: 5000,
+      });
+    }
+
+    if (unmappedFiles.length > 0 && matchCount > 0) {
+      toast.info(`${unmappedFiles.length} foto diabaikan karena nama file tidak cocok dengan NISN manapun.`, {
+        duration: 5000,
       });
     }
 
@@ -202,7 +267,6 @@ export function FormSiswaBulk({
               className="hidden"
             />
           </div>
-          {error && <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {error}</p>}
         </div>
 
         <div>
@@ -244,7 +308,7 @@ export function FormSiswaBulk({
               <Users className="w-4 h-4"/> Data Pratinjau ({bulkStudents.length} Siswa)
             </span>
           </div>
-          <div className="overflow-y-auto max-h-[300px]">
+          <div className="overflow-y-auto max-h-[300px] [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]">
             <table className="w-full text-sm text-left text-slate-500">
               <thead className="text-xs text-slate-700 bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
                 <tr>

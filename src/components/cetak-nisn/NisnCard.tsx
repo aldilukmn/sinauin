@@ -305,8 +305,7 @@ export const NisnCard = forwardRef<HTMLDivElement, NisnCardProps>(({ data }, ref
               data.name &&
               data.pob &&
               data.dob &&
-              data.gender &&
-              data.photoUrl ? (
+              data.gender ? (
                 <QRCode
                   value={`https://nisn.data.kemendikdasmen.go.id`}
                   size={42}

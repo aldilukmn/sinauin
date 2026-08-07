@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, startTransition } from "react";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedNumber } from "@/components/animations/AnimatedNumber";
@@ -53,6 +53,7 @@ import {
   Users,
   ShieldCheck,
   School,
+  FileText,
 } from "lucide-react";
 
 export default function CetakNisnPage() {
@@ -70,7 +71,11 @@ export default function CetakNisnPage() {
     showMobilePreview,
     setShowMobilePreview,
     printMode,
+    setPrintMode,
+    paperSize,
+    setPaperSize,
     isChangingMode,
+    setIsChangingMode,
     bulkStudents,
     setBulkStudents,
     csvFileName,
@@ -78,7 +83,6 @@ export default function CetakNisnPage() {
     printCount,
     fileInputRef,
     schoolLogoInputRef,
-    printContainerRef,
     isFormComplete,
     previewData,
     handleModeSwitch,
@@ -290,11 +294,48 @@ export default function CetakNisnPage() {
                       </div>
                     </div>
 
+                    {printMode === "bulk" && isFormComplete && (
+                      <div className="mt-4 mb-2 flex items-center justify-between bg-slate-50 p-2 rounded-xl text-sm border border-slate-200/80 shadow-sm">
+                        <div className="flex items-center gap-2 px-2">
+                          <div className="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-slate-700 font-medium">Ukuran Kertas</span>
+                        </div>
+                        <div className="flex bg-slate-200/60 p-1 rounded-lg relative">
+                          {["A4", "F4"].map((size) => (
+                            <button
+                              key={size}
+                              onClick={() => {
+                                startTransition(() => {
+                                  setPaperSize(size as "A4" | "F4");
+                                });
+                              }}
+                              className={cn(
+                                "relative px-4 py-1.5 rounded-md text-sm font-medium transition-colors z-10",
+                                paperSize === size ? "text-blue-700" : "text-slate-500 hover:text-slate-700"
+                              )}
+                            >
+                              {paperSize === size && (
+                                <motion.div
+                                  layoutId="paper-size-active"
+                                  className="absolute inset-0 bg-white rounded-md shadow-sm"
+                                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                  style={{ zIndex: -1 }}
+                                />
+                              )}
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <Button
                       onClick={handlePrint}
                       disabled={!isFormComplete}
                       className={cn(
-                        "w-full font-semibold h-12 text-base shadow-sm transition-transform mt-4",
+                        "w-full font-semibold h-12 text-base shadow-sm transition-transform mt-2",
                         isFormComplete
                           ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-[1.02] active:scale-[0.98]"
                           : "bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed hover:bg-slate-800",
@@ -302,8 +343,8 @@ export default function CetakNisnPage() {
                     >
                       <Printer className="w-5 h-5 mr-2" />{" "}
                       {printMode === "bulk"
-                        ? "Cetak Massal (A4)"
-                        : "Unduh Kartu"}
+                        ? "Cetak Massal"
+                        : "Cetak Kartu"}
                     </Button>
                   </div>
                 </motion.div>
@@ -549,31 +590,18 @@ export default function CetakNisnPage() {
           </div>
         </div>
 
-        {/* Hidden Render Area for HTML-to-Image 
-          We render un-rotated, clean versions of the cards here side-by-side so they are captured as a single combined image */}
-        <div className="fixed top-0 left-[-9999px]">
-          {/* We add a transparent background and a small gap so the output image looks neat and is easy to cut */}
-          <div
-            ref={printContainerRef}
-            className="flex gap-4 p-4 bg-transparent items-center justify-center"
-          >
-            <NisnCard data={data} />
-            <NisnCardBack data={data} />
-          </div>
-        </div>
       </div>
 
-      {printMode === "bulk" && (
-        <BulkPrintLayout
-          bulkStudents={bulkStudents}
-          schoolData={{
-            school: data.school,
-            district: data.district,
-            regency: data.regency,
-            schoolLogoUrl: data.schoolLogoUrl,
-          }}
-        />
-      )}
+      <BulkPrintLayout
+        bulkStudents={printMode === "bulk" ? bulkStudents : [{...data}]}
+        paperSize={paperSize}
+        schoolData={{
+          school: data.school,
+          district: data.district,
+          regency: data.regency,
+          schoolLogoUrl: data.schoolLogoUrl,
+        }}
+      />
     </>
   );
 }

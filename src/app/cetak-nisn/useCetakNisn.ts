@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import * as htmlToImage from "html-to-image";
 import { toast } from "sonner";
 import { NisnData, StudentData } from "@/components/cetak-nisn/NisnCard";
 
@@ -24,6 +23,7 @@ export function useCetakNisn() {
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [printMode, setPrintMode] = useState<"single" | "bulk">("single");
+  const [paperSize, setPaperSize] = useState<"A4" | "F4">("A4");
   const [isChangingMode, setIsChangingMode] = useState(false);
   const [bulkStudents, setBulkStudents] = useState<StudentData[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
@@ -31,14 +31,14 @@ export function useCetakNisn() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const schoolLogoInputRef = useRef<HTMLInputElement>(null);
-  const printContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // 1. Fetch Print Counter
     const fetchCounter = () => {
       fetch('/api/counter')
         .then(res => res.json())
-        .then(data => {
-          const parsedCount = Number(data.count);
+        .then(resData => {
+          const parsedCount = Number(resData.count);
           if (!isNaN(parsedCount)) {
             setPrintCount(parsedCount);
           }
@@ -48,8 +48,33 @@ export function useCetakNisn() {
 
     fetchCounter();
     const intervalId = setInterval(fetchCounter, 3000);
+
+    // 2. Load School Data from Local Storage
+    const savedSchool = localStorage.getItem("sinauin_school");
+    const savedDistrict = localStorage.getItem("sinauin_district");
+    const savedRegency = localStorage.getItem("sinauin_regency");
+    const savedLogo = localStorage.getItem("sinauin_logo");
+    
+    if (savedSchool || savedDistrict || savedRegency || savedLogo) {
+      setData(prev => ({
+        ...prev,
+        school: savedSchool || prev.school,
+        district: savedDistrict || prev.district,
+        regency: savedRegency || prev.regency,
+        schoolLogoUrl: savedLogo || prev.schoolLogoUrl,
+      }));
+    }
+
     return () => clearInterval(intervalId);
   }, []);
+
+  // Save School Data to Local Storage whenever it changes
+  useEffect(() => {
+    if (data.school) localStorage.setItem("sinauin_school", data.school);
+    if (data.district) localStorage.setItem("sinauin_district", data.district);
+    if (data.regency) localStorage.setItem("sinauin_regency", data.regency);
+    if (data.schoolLogoUrl) localStorage.setItem("sinauin_logo", data.schoolLogoUrl);
+  }, [data.school, data.district, data.regency, data.schoolLogoUrl]);
 
   const handleModeSwitch = (mode: "single" | "bulk") => {
     if (printMode === mode) return;
@@ -78,26 +103,22 @@ export function useCetakNisn() {
   };
 
   const handleReset = () => {
-    setData({
+    setData(prev => ({
+      ...prev,
       nisn: "",
       name: "",
       pob: "",
       dob: "",
       gender: "",
-      school: "",
-      schoolLogoUrl: "",
-      district: "",
-      regency: "",
       photoUrl: "",
-    });
+      // Biarkan data sekolah (school, district, regency, schoolLogoUrl) tetap ada
+    }));
     setFileName("");
-    setSchoolLogoName("");
     setBulkStudents([]);
     setCsvFileName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (schoolLogoInputRef.current) schoolLogoInputRef.current.value = "";
     
-    toast.success("Formulir berhasil direset!", { id: "reset-toast" });
+    toast.success("Formulir siswa berhasil direset!", { id: "reset-toast" });
   };
 
   const isFormComplete = printMode === "single" ? Boolean(
@@ -110,8 +131,7 @@ export function useCetakNisn() {
     data.school &&
     data.district &&
     data.regency &&
-    data.schoolLogoUrl &&
-    data.photoUrl
+    data.schoolLogoUrl
   ) : Boolean(
     data.school &&
     data.district &&
@@ -120,14 +140,19 @@ export function useCetakNisn() {
     bulkStudents.length > 0
   );
 
-  const previewData = printMode === 'bulk' && bulkStudents.length > 0
-    ? { 
-        ...bulkStudents[0], 
-        school: data.school, 
-        district: data.district, 
-        regency: data.regency, 
-        schoolLogoUrl: data.schoolLogoUrl 
-      }
+  const previewData = printMode === 'bulk'
+    ? (bulkStudents.length > 0
+        ? { 
+            ...bulkStudents[0], 
+            school: data.school, 
+            district: data.district, 
+            regency: data.regency, 
+            schoolLogoUrl: data.schoolLogoUrl 
+          }
+        : {
+            nisn: "", name: "", pob: "", dob: "", gender: "", photoUrl: "",
+            school: data.school, district: data.district, regency: data.regency, schoolLogoUrl: data.schoolLogoUrl
+          })
     : data;
 
   const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,9 +170,14 @@ export function useCetakNisn() {
         return;
       }
       setSchoolLogoName(file.name);
-      const url = URL.createObjectURL(file);
-      setData(prev => ({ ...prev, schoolLogoUrl: url }));
-      toast.success("Logo sekolah berhasil diunggah!");
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Url = event.target?.result as string;
+        setData(prev => ({ ...prev, schoolLogoUrl: base64Url }));
+        toast.success("Logo sekolah berhasil diunggah!");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -198,64 +228,55 @@ export function useCetakNisn() {
     }
   };
 
+  const latestPrintDataRef = useRef({ printMode, data, bulkStudents });
+  useEffect(() => {
+    latestPrintDataRef.current = { printMode, data, bulkStudents };
+  }, [printMode, data, bulkStudents]);
+
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      const { printMode, data, bulkStudents } = latestPrintDataRef.current;
+      
+      if (printMode === "bulk") {
+        const nisns = bulkStudents.length > 0 
+          ? bulkStudents.map(s => s.nisn || "0000000000") 
+          : ["bulk_test_nisn"];
+        trackPrint(nisns);
+      } else {
+        const trackNisn = data.nisn ? data.nisn : "0000000000";
+        trackPrint([trackNisn]);
+      }
+    };
+
+    window.addEventListener("beforeprint", handleBeforePrint);
+    return () => window.removeEventListener("beforeprint", handleBeforePrint);
+  }, []);
+
   const handleBulkPrint = useCallback(async () => {
-    const nisns = bulkStudents.length > 0 
-      ? bulkStudents.map(s => s.nisn || "0000000000") 
-      : ["bulk_test_nisn"];
-      
-    await trackPrint(nisns);
+    const originalTitle = document.title;
+    const studentCount = bulkStudents.length > 0 ? bulkStudents.length : 1;
+    const safeSchoolName = data.school ? data.school : "Sekolah";
+    document.title = `Kartu NISN_${studentCount} siswa_${safeSchoolName}`;
     
-    setTimeout(() => {
-      const originalTitle = document.title;
-      const studentCount = bulkStudents.length > 0 ? bulkStudents.length : 1;
-      const safeSchoolName = data.school ? data.school : "Sekolah";
-      document.title = `Kartu NISN_${studentCount} siswa_${safeSchoolName}`;
-      
-      window.print();
-      
-      document.title = originalTitle;
-    }, 100);
+    window.print();
+    
+    document.title = originalTitle;
   }, [bulkStudents, data.school]);
-
-  const handleSinglePrint = useCallback(async () => {
-    if (printContainerRef.current === null) return;
-
-    try {
-      const exportOptions = {
-        quality: 1.0,
-        pixelRatio: 4,
-      };
-
-      const dataUrl = await htmlToImage.toPng(
-        printContainerRef.current,
-        exportOptions,
-      );
-
-      const nisnFormat = data.nisn ? data.nisn : "nisn";
-      const nameFormat = data.name ? data.name : "nama";
-      const baseFileName = `Kartu NISN_${nisnFormat}_${nameFormat}`.replace(/\s+/g, "_");
-
-      const link = document.createElement("a");
-      link.download = `${baseFileName}.png`;
-      link.href = dataUrl;
-      link.click();
-      
-      const trackNisn = data.nisn ? data.nisn : "0000000000";
-      await trackPrint([trackNisn]);
-      toast.success("Kartu berhasil diunduh!");
-    } catch (err) {
-      console.error("Oops, something went wrong!", err);
-      toast.error("Gagal mengunduh kartu. Silakan coba lagi.");
-    }
-  }, [data.nisn, data.name]);
 
   const handlePrint = useCallback(async () => {
     if (printMode === "bulk") {
       await handleBulkPrint();
     } else {
-      await handleSinglePrint();
+      const originalTitle = document.title;
+      const trackNisn = data.nisn ? data.nisn : "0000000000";
+      const nameFormat = data.name ? data.name : "nama";
+      document.title = `Kartu NISN_${trackNisn}_${nameFormat}`.replace(/\s+/g, "_");
+      
+      window.print();
+      
+      document.title = originalTitle;
     }
-  }, [printMode, handleBulkPrint, handleSinglePrint]);
+  }, [printMode, handleBulkPrint, data.nisn, data.name]);
 
   return {
     data,
@@ -274,6 +295,8 @@ export function useCetakNisn() {
     setShowMobilePreview,
     printMode,
     setPrintMode,
+    paperSize,
+    setPaperSize,
     isChangingMode,
     setIsChangingMode,
     bulkStudents,
@@ -284,7 +307,6 @@ export function useCetakNisn() {
     setPrintCount,
     fileInputRef,
     schoolLogoInputRef,
-    printContainerRef,
     isFormComplete,
     previewData,
     handleModeSwitch,
@@ -294,6 +316,5 @@ export function useCetakNisn() {
     handlePhotoUpload,
     handlePrint,
     handleBulkPrint,
-    handleSinglePrint
   };
 }
