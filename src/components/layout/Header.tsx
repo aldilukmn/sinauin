@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '../ui/button';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
@@ -25,7 +26,13 @@ export function Header() {
               className="flex items-center space-x-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <span className="font-bold text-2xl text-primary">sinauin.id</span>
+              <Image 
+                src="/sinauin-logo.svg" 
+                alt="sinauin.id logo" 
+                width={200} 
+                height={56} 
+                className="h-14 w-auto object-contain"
+              />
             </Link>
           </div>
 

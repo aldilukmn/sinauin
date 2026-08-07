@@ -18,7 +18,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "sinauin.id - Manajemen Sekolah Modern & Edukatif",
-  description: "Platform SaaS sistem manajemen sekolah terintegrasi dengan game edukasi. Mudah, aman, dan dapatkan subdomain khusus untuk sekolah Anda.",
+  description:
+    "Platform SaaS sistem manajemen sekolah terintegrasi dengan game edukasi. Mudah, aman, dan dapatkan subdomain khusus untuk sekolah Anda.",
+  icons: {
+    icon: "/sinauin-logo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -32,7 +36,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ClickSpark sparkColor="#3b82f6" sparkSize={12} sparkRadius={25} sparkCount={10} duration={900}>
+        <ClickSpark
+          sparkColor="#3b82f6"
+          sparkSize={12}
+          sparkRadius={25}
+          sparkCount={10}
+          duration={900}
+        >
           <div className="relative w-full flex-1 flex flex-col">
             <Header />
             <main className="flex-1">{children}</main>
