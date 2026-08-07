@@ -96,6 +96,8 @@ export function useCetakNisn() {
     setCsvFileName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (schoolLogoInputRef.current) schoolLogoInputRef.current.value = "";
+    
+    toast.success("Formulir berhasil direset!", { id: "reset-toast" });
   };
 
   const isFormComplete = printMode === "single" ? Boolean(

@@ -66,11 +66,11 @@ export const NisnCard = forwardRef<HTMLDivElement, NisnCardProps>(({ data }, ref
       }}
     >
       {/* Background styling to mimic official card */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-60 z-0" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-60 z-0" />
 
       <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="bg-[#173B8F] bg-gradient-to-b from-[#1c45a6] to-[#173B8F] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-white flex items-center px-3 py-1.5 gap-2 relative z-10 border-b-2 border-[#ECA521] overflow-hidden">
+        <div className="bg-[#173B8F] bg-linear-to-b from-[#1c45a6] to-[#173B8F] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-white flex items-center px-3 py-1.5 gap-2 relative z-10 border-b-2 border-[#ECA521] overflow-hidden">
           {/* Subtle Guilloche Pattern */}
           <svg
             className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none mix-blend-overlay z-0"
@@ -339,10 +339,10 @@ export const NisnCardBack = forwardRef<HTMLDivElement, NisnCardProps>(({ data },
       }}
     >
       {/* Background styling to mimic official card */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-30 z-0" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-30 z-0" />
 
       {/* Header */}
-      <div className="bg-[#173B8F] bg-gradient-to-b from-[#1c45a6] to-[#173B8F] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-white flex items-center px-3 py-1.5 border-b-2 border-[#ECA521] z-20 relative overflow-hidden">
+      <div className="bg-[#173B8F] bg-linear-to-b from-[#1c45a6] to-[#173B8F] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-white flex items-center px-3 py-1.5 border-b-2 border-[#ECA521] z-20 relative overflow-hidden">
         {/* Subtle Guilloche Pattern */}
         <svg
           className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none mix-blend-overlay z-0"
@@ -450,7 +450,7 @@ export const NisnCardBack = forwardRef<HTMLDivElement, NisnCardProps>(({ data },
           </svg>
         </div>
         {/* Background styling to mimic official card */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-60 z-0" />
+        <div className="absolute inset-0 bg-linear-to-br from-blue-100 via-emerald-50 to-amber-100 opacity-60 z-0" />
 
         {/* Watermark Logo */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] z-0 pointer-events-none">

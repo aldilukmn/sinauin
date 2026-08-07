@@ -49,7 +49,20 @@ export default function RootLayout({
             <Footer />
           </div>
         </ClickSpark>
-        <Toaster position="top-center" richColors className="print:hidden" />
+        <Toaster 
+          position="top-center" 
+          richColors 
+          expand={true}
+          className="print:hidden" 
+          toastOptions={{
+            classNames: {
+              toast: 'bg-white border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl',
+              title: 'font-semibold text-slate-800 text-sm',
+              description: 'text-slate-500',
+              icon: 'mr-1',
+            },
+          }}
+        />
       </body>
     </html>
   );

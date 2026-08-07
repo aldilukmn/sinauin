@@ -39,7 +39,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen overflow-x-hidden">
       {/* Hero Section */}
-      <section className="relative px-4 md:px-8 py-16 md:py-24 lg:py-32 bg-gradient-to-b from-blue-50 to-white overflow-hidden">
+      <section className="relative px-4 md:px-8 py-16 md:py-24 lg:py-32 bg-linear-to-b from-blue-50 to-white overflow-hidden">
         <motion.div 
           className="container mx-auto relative z-10 text-center max-w-4xl"
           initial="hidden"

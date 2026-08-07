@@ -30,8 +30,8 @@ export function Header() {
                 src="/sinauin-logo.svg" 
                 alt="sinauin.id logo" 
                 width={200} 
-                height={56} 
-                className="h-14 w-auto object-contain"
+                height={36} 
+                className="h-9 w-auto object-contain"
               />
             </Link>
           </div>
